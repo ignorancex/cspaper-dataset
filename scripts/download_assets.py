@@ -54,6 +54,8 @@ def infer_pdf_url(link: str) -> str:
     parsed = urlparse(link)
     if parsed.path.lower().endswith(".pdf"):
         return link
+    if "/article/download/" in parsed.path.lower():
+        return link
     return ""
 
 

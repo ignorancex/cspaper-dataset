@@ -1,8 +1,8 @@
 ﻿领域,年份,会议或期刊名,文章名,链接,代码仓库,数据集或基准链接,本地的下载路径,文章类别,备注
-cs.AI,2020,AAAI,Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression,https://ojs.aaai.org/index.php/AAAI/article/download/6999/6853,https://github.com/Zzh-tju/DIoU,,,方法型,OpenAlex cited_by_count=4077
-cs.AI,2020,AAAI,Random Erasing Data Augmentation,https://ojs.aaai.org/index.php/AAAI/article/download/7000/6854,https://github.com/zhunzhong07/Random-Erasing,,,方法型,OpenAlex cited_by_count=2861
+cs.AI,2020,AAAI,Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression,https://ojs.aaai.org/index.php/AAAI/article/download/6999/6853,https://github.com/Zzh-tju/DIoU,,downloads/aaai/2020/distance-iou-loss-faster-and-better-learning-for-bounding-box-regression,方法型,OpenAlex cited_by_count=4077
+cs.AI,2020,AAAI,Random Erasing Data Augmentation,https://ojs.aaai.org/index.php/AAAI/article/download/7000/6854,https://github.com/zhunzhong07/Random-Erasing,,downloads/aaai/2020/random-erasing-data-augmentation,方法型,OpenAlex cited_by_count=2861
 cs.AI,2020,AAAI,FFA-Net: Feature Fusion Attention Network for Single Image Dehazing,https://ojs.aaai.org/index.php/AAAI/article/download/6865/6719,,,,bench/dataset型,OpenAlex cited_by_count=1640
-cs.AI,2020,AAAI,GMAN: A Graph Multi-Attention Network for Traffic Prediction,https://ojs.aaai.org/index.php/AAAI/article/download/5477/5333,https://github.com/zhengchuanpan/GMAN,,,系统型,OpenAlex cited_by_count=1593
+cs.AI,2020,AAAI,GMAN: A Graph Multi-Attention Network for Traffic Prediction,https://ojs.aaai.org/index.php/AAAI/article/download/5477/5333,https://github.com/zhengchuanpan/GMAN,,downloads/aaai/2020/gman-a-graph-multi-attention-network-for-traffic-prediction,系统型,OpenAlex cited_by_count=1593
 cs.AI,2020,AAAI,Spatial-Temporal Synchronous Graph Convolutional Networks: A New Framework for Spatial-Temporal Network Data Forecasting,https://ojs.aaai.org/index.php/AAAI/article/download/5438/5294,,,,bench/dataset型,OpenAlex cited_by_count=1493
 cs.AI,2021,AAAI,Informer: Beyond Efficient Transformer for Long Sequence Time-Series Forecasting,https://ojs.aaai.org/index.php/AAAI/article/download/17325/17132,,,,bench/dataset型,OpenAlex cited_by_count=6171
 cs.AI,2021,AAAI,Graph Neural Network-Based Anomaly Detection in Multivariate Time Series,https://doi.org/10.1609/aaai.v35i5.16523,,,,bench/dataset型,OpenAlex cited_by_count=1147
