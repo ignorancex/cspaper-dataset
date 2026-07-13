@@ -56,6 +56,8 @@ def infer_pdf_url(link: str) -> str:
         return link
     if "/article/download/" in parsed.path.lower():
         return link
+    if parsed.netloc == "proceedings.mlr.press" and parsed.path.lower().endswith(".html"):
+        return link[:-5] + ".pdf"
     return ""
 
 
@@ -83,20 +85,25 @@ def download_file(url: str, output: Path, timeout: int = 60) -> bool:
     return output.exists() and output.stat().st_size > 0
 
 
-def clone_repo(repo_url: str, dest: Path) -> bool:
+def clone_repo(repo_url: str, dest: Path, timeout: int = 180) -> bool:
     if not repo_url:
         return False
     if dest.exists():
         return True
     dest.parent.mkdir(parents=True, exist_ok=True)
-    result = subprocess.run(
-        ["git", "clone", "--depth", "1", repo_url, str(dest)],
-        cwd=str(ROOT),
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", repo_url, str(dest)],
+            cwd=str(ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        log(f"[warn] git clone timed out for {repo_url}")
+        return False
     if result.returncode != 0:
         log(f"[warn] git clone failed for {repo_url}: {result.stdout.strip()}")
         return False
@@ -139,8 +146,6 @@ def main() -> int:
         if downloaded >= args.max_items:
             break
         row = rows[index]
-        if row.get("本地的下载路径"):
-            continue
 
         pdf_url = infer_pdf_url(row.get("链接", ""))
         if not pdf_url:
@@ -149,7 +154,9 @@ def main() -> int:
         venue = slugify(row["会议或期刊名"])
         title = slugify(row["文章名"])
         year = row["年份"]
-        local_dir = DOWNLOAD_ROOT / venue / year / title
+        local_dir = ROOT / row["本地的下载路径"] if row.get("本地的下载路径") else DOWNLOAD_ROOT / venue / year / title
+        if (local_dir / "paper.pdf").exists():
+            continue
         pdf_ok = download_file(pdf_url, local_dir / "paper.pdf")
         if not pdf_ok:
             continue
