@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import shutil
+import time
 from pathlib import Path
 
 from collect_papers import COLUMNS
@@ -18,10 +20,19 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 
 def write_rows(path: Path, rows: list[dict[str, str]]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+    path = path.resolve()
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
+    for attempt in range(5):
+        try:
+            tmp_path.replace(path)
+            return
+        except PermissionError:
+            time.sleep(0.5 * (attempt + 1))
+    shutil.copyfile(tmp_path, path)
 
 
 def append_note(row: dict[str, str], note: str) -> None:

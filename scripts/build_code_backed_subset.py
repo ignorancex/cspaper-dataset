@@ -32,6 +32,15 @@ ARXIV_CACHE_PATH = ROOT / ".cache" / "arxiv_title_search.json"
 USER_AGENT = "cspaper-dataset/0.1"
 ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
+CODE_HOSTS = (
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "codeberg.org",
+    "sourceforge.net",
+    "huggingface.co",
+)
+
 STOPWORDS = {
     "with",
     "from",
@@ -130,14 +139,30 @@ def arxiv_repo_for_title(title: str, cache: dict[str, Any]) -> tuple[str, str]:
         summary = entry.findtext("atom:summary", default="", namespaces=ARXIV_NS)
         entry_id = entry.findtext("atom:id", default="", namespaces=ARXIV_NS)
         if normalize_title(entry_title) == normalize_title(title):
-            match = re.search(r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", summary)
-            if match:
-                repo = match.group(0).rstrip(".,;)")
+            repo = extract_code_url(summary)
+            if repo:
                 arxiv_id = entry_id.rstrip("/").rsplit("/", 1)[-1] if entry_id else ""
-                note = f"arXiv abstract repo match; arXiv:{arxiv_id}"
+                note = f"arXiv abstract code URL match; arXiv:{arxiv_id}"
     cache[cache_key] = {"repo": repo, "note": note}
     save_json(ARXIV_CACHE_PATH, cache)
     return repo, note
+
+
+def extract_code_url(text: str) -> str:
+    urls = re.findall(r"https?://[^\s)>\\\]]+", text)
+    for raw_url in urls:
+        url = raw_url.rstrip(".,;)}]")
+        lowered = url.lower()
+        if any(host in lowered for host in CODE_HOSTS):
+            return url
+    for raw_url in urls:
+        url = raw_url.rstrip(".,;)}]")
+        lowered_text = text.lower()
+        idx = lowered_text.find(url.lower())
+        window = lowered_text[max(0, idx - 80) : idx + len(url) + 80] if idx >= 0 else lowered_text
+        if any(token in window for token in ("code", "repository", "repo", "implementation", "project page", "available at")):
+            return url
+    return ""
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
