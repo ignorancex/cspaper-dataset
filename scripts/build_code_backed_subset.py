@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT / "data" / "papers.csv"
 DEFAULT_OUTPUT = ROOT / "data" / "papers_with_code.csv"
 CACHE_PATH = ROOT / ".cache" / "github_repo_search.json"
+ARXIV_CACHE_PATH = ROOT / ".cache" / "arxiv_title_search.json"
 USER_AGENT = "cspaper-dataset/0.1"
+ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
 STOPWORDS = {
     "with",
@@ -76,9 +79,65 @@ def load_cache() -> dict[str, Any]:
     return {}
 
 
+def load_json(path: Path) -> dict[str, Any]:
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+
+def save_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def save_cache(cache: dict[str, Any]) -> None:
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def normalize_title(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def arxiv_repo_for_title(title: str, cache: dict[str, Any]) -> tuple[str, str]:
+    cache_key = title.lower()
+    if cache_key in cache:
+        item = cache[cache_key]
+        return item.get("repo", ""), item.get("note", "")
+    params = urllib.parse.urlencode(
+        {
+            "search_query": f'ti:"{title}"',
+            "start": "0",
+            "max_results": "1",
+            "sortBy": "relevance",
+            "sortOrder": "descending",
+        }
+    )
+    url = "https://export.arxiv.org/api/query?" + params
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    repo = ""
+    note = ""
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            root = ET.fromstring(response.read())
+    except Exception:
+        cache[cache_key] = {"repo": "", "note": ""}
+        save_json(ARXIV_CACHE_PATH, cache)
+        return "", ""
+    entry = root.find("atom:entry", ARXIV_NS)
+    if entry is not None:
+        entry_title = entry.findtext("atom:title", default="", namespaces=ARXIV_NS)
+        summary = entry.findtext("atom:summary", default="", namespaces=ARXIV_NS)
+        entry_id = entry.findtext("atom:id", default="", namespaces=ARXIV_NS)
+        if normalize_title(entry_title) == normalize_title(title):
+            match = re.search(r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", summary)
+            if match:
+                repo = match.group(0).rstrip(".,;)")
+                arxiv_id = entry_id.rstrip("/").rsplit("/", 1)[-1] if entry_id else ""
+                note = f"arXiv abstract repo match; arXiv:{arxiv_id}"
+    cache[cache_key] = {"repo": repo, "note": note}
+    save_json(ARXIV_CACHE_PATH, cache)
+    return repo, note
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -189,6 +248,7 @@ def append_note(row: dict[str, str], note: str) -> None:
 def build(args: argparse.Namespace) -> list[dict[str, str]]:
     rows = read_rows(Path(args.input))
     cache = load_cache()
+    arxiv_cache = load_json(ARXIV_CACHE_PATH)
     token = os.environ.get("GITHUB_TOKEN", "")
     grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
     for row in rows:
@@ -209,6 +269,16 @@ def build(args: argparse.Namespace) -> list[dict[str, str]]:
                 break
             if row.get("代码仓库"):
                 continue
+            repo_url, note = arxiv_repo_for_title(row["文章名"], arxiv_cache)
+            if repo_url:
+                new_row = dict(row)
+                new_row["代码仓库"] = repo_url
+                append_note(new_row, note)
+                selected.append(new_row)
+                log(f"[arxiv-repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
+                time.sleep(args.arxiv_sleep)
+                continue
+            time.sleep(args.arxiv_sleep)
             if args.max_queries and queries >= args.max_queries:
                 continue
             try:
@@ -247,6 +317,7 @@ def main() -> int:
     parser.add_argument("--max-queries", type=int, default=80)
     parser.add_argument("--min-score", type=float, default=0.45)
     parser.add_argument("--sleep", type=float, default=6.5)
+    parser.add_argument("--arxiv-sleep", type=float, default=3.0)
     args = parser.parse_args()
     build(args)
     return 0

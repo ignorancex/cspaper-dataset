@@ -39,11 +39,23 @@ def local_dir_for(row: dict[str, str]) -> Path:
     return DOWNLOAD_ROOT / venue / row["年份"] / title
 
 
+def rewrite_clone_url(repo_url: str) -> str:
+    prefix = os.environ.get("GITHUB_CLONE_PREFIX", "").strip()
+    if not prefix:
+        return repo_url
+    if "{url}" in prefix:
+        return prefix.format(url=repo_url)
+    if repo_url.startswith("https://github.com/") and prefix.rstrip("/").endswith("github.com"):
+        return prefix.rstrip("/") + repo_url.removeprefix("https://github.com")
+    return prefix.rstrip("/") + "/" + repo_url
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", default=str(ROOT / "data" / "papers_with_code.csv"))
     parser.add_argument("--max-items", type=int, default=0, help="0 means all")
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--skip-url", action="append", default=[])
     args = parser.parse_args()
 
     csv_path = Path(args.csv)
@@ -54,6 +66,9 @@ def main() -> int:
         repo_url = row.get("代码仓库", "")
         if not repo_url:
             continue
+        if repo_url in set(args.skip_url):
+            append_note(row, "repo clone skipped")
+            continue
         local_dir = local_dir_for(row)
         repo_dir = local_dir / "repo"
         if repo_dir.exists():
@@ -63,7 +78,8 @@ def main() -> int:
         if args.max_items and attempted >= args.max_items:
             break
         attempted += 1
-        ok = clone_repo(repo_url, repo_dir, timeout=args.timeout)
+        clone_url = rewrite_clone_url(repo_url)
+        ok = clone_repo(clone_url, repo_dir, timeout=args.timeout)
         if ok:
             row["本地的下载路径"] = str(local_dir.relative_to(ROOT)).replace(os.sep, "/")
             if not (local_dir / "paper.pdf").exists():
@@ -78,4 +94,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
