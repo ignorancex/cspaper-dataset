@@ -1,0 +1,48 @@
+area,venue,kind,openalex_source_name,aliases
+cs.AI,AAAI,conference,AAAI Conference on Artificial Intelligence,AAAI Conference on Artificial Intelligence;AAAI
+cs.AI,IJCAI,conference,International Joint Conference on Artificial Intelligence,IJCAI;International Joint Conference on Artificial Intelligence
+cs.LG,ICML,conference,International Conference on Machine Learning,ICML;International Conference on Machine Learning
+cs.LG,ICLR,conference,International Conference on Learning Representations,ICLR;International Conference on Learning Representations
+cs.LG,NeurIPS,conference,Neural Information Processing Systems,NeurIPS;NIPS;Conference on Neural Information Processing Systems
+cs.LG,JMLR,journal,Journal of Machine Learning Research,JMLR;Journal of Machine Learning Research
+cs.CV,CVPR,conference,Computer Vision and Pattern Recognition,CVPR;IEEE/CVF Conference on Computer Vision and Pattern Recognition
+cs.CV,ICCV,conference,International Conference on Computer Vision,ICCV;IEEE/CVF International Conference on Computer Vision
+cs.CV,ECCV,conference,European Conference on Computer Vision,ECCV;European Conference on Computer Vision
+cs.CV,TPAMI,journal,IEEE Transactions on Pattern Analysis and Machine Intelligence,TPAMI;IEEE Transactions on Pattern Analysis and Machine Intelligence
+cs.CL,ACL,conference,Annual Meeting of the Association for Computational Linguistics,ACL;Annual Meeting of the Association for Computational Linguistics
+cs.CL,EMNLP,conference,Empirical Methods in Natural Language Processing,EMNLP;Conference on Empirical Methods in Natural Language Processing
+cs.CL,NAACL,conference,North American Chapter of the Association for Computational Linguistics,NAACL;NAACL-HLT
+cs.CL,TACL,journal,Transactions of the Association for Computational Linguistics,TACL;Transactions of the Association for Computational Linguistics
+cs.SE,ICSE,conference,International Conference on Software Engineering,ICSE;International Conference on Software Engineering
+cs.SE,FSE,conference,ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering,FSE;ESEC/FSE;Foundations of Software Engineering
+cs.SE,ASE,conference,Automated Software Engineering,ASE;IEEE/ACM International Conference on Automated Software Engineering
+cs.SE,ISSTA,conference,International Symposium on Software Testing and Analysis,ISSTA;International Symposium on Software Testing and Analysis
+cs.SE,TSE,journal,IEEE Transactions on Software Engineering,TSE;IEEE Transactions on Software Engineering
+cs.NI,SIGCOMM,conference,ACM SIGCOMM,SIGCOMM;ACM SIGCOMM Conference
+cs.NI,NSDI,conference,USENIX Symposium on Networked Systems Design and Implementation,NSDI;Networked Systems Design and Implementation
+cs.NI,MobiCom,conference,ACM International Conference on Mobile Computing and Networking,MobiCom;International Conference on Mobile Computing and Networking
+cs.NI,TON,journal,IEEE/ACM Transactions on Networking,TON;IEEE/ACM Transactions on Networking
+cs.DB,SIGMOD,conference,ACM SIGMOD International Conference on Management of Data,SIGMOD;International Conference on Management of Data
+cs.DB,VLDB,conference,Very Large Data Bases,VLDB;International Conference on Very Large Data Bases
+cs.DB,ICDE,conference,IEEE International Conference on Data Engineering,ICDE;International Conference on Data Engineering
+cs.DB,VLDB Journal,journal,VLDB Journal,VLDB Journal;The VLDB Journal
+cs.OS,OSDI,conference,USENIX Symposium on Operating Systems Design and Implementation,OSDI;Operating Systems Design and Implementation
+cs.OS,SOSP,conference,ACM Symposium on Operating Systems Principles,SOSP;Symposium on Operating Systems Principles
+cs.OS,USENIX ATC,conference,USENIX Annual Technical Conference,USENIX ATC;USENIX Annual Technical Conference
+cs.OS,EuroSys,conference,European Conference on Computer Systems,EuroSys;European Conference on Computer Systems
+cs.CR,USENIX Security,conference,USENIX Security Symposium,USENIX Security;USENIX Security Symposium
+cs.CR,IEEE S&P,conference,IEEE Symposium on Security and Privacy,IEEE S&P;Oakland;IEEE Symposium on Security and Privacy
+cs.CR,CCS,conference,ACM Conference on Computer and Communications Security,CCS;ACM CCS
+cs.CR,NDSS,conference,Network and Distributed System Security Symposium,NDSS;Network and Distributed System Security Symposium
+cs.AR,ISCA,conference,International Symposium on Computer Architecture,ISCA;International Symposium on Computer Architecture
+cs.AR,MICRO,conference,IEEE/ACM International Symposium on Microarchitecture,MICRO;International Symposium on Microarchitecture
+cs.AR,ASPLOS,conference,Architectural Support for Programming Languages and Operating Systems,ASPLOS;Architectural Support for Programming Languages and Operating Systems
+cs.AR,HPCA,conference,IEEE International Symposium on High-Performance Computer Architecture,HPCA;High-Performance Computer Architecture
+cs.HC,CHI,conference,Conference on Human Factors in Computing Systems,CHI;ACM CHI Conference on Human Factors in Computing Systems
+cs.HC,UIST,conference,ACM Symposium on User Interface Software and Technology,UIST;User Interface Software and Technology
+cs.HC,CSCW,conference,ACM Conference on Computer-Supported Cooperative Work and Social Computing,CSCW;Computer-Supported Cooperative Work
+cs.DS,STOC,conference,ACM Symposium on Theory of Computing,STOC;Symposium on Theory of Computing
+cs.DS,FOCS,conference,IEEE Symposium on Foundations of Computer Science,FOCS;Foundations of Computer Science
+cs.DS,SODA,conference,ACM-SIAM Symposium on Discrete Algorithms,SODA;Symposium on Discrete Algorithms
+cs.DS,JACM,journal,Journal of the ACM,JACM;Journal of the ACM
+
