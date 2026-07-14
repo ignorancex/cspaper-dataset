@@ -335,7 +335,7 @@ def normalize_hits(raw_hits: Any) -> list[dict[str, Any]]:
 
 def dblp_xml_rows(venue: Venue, year: int, toc: str, limit: int) -> list[dict[str, str]]:
     url = f"https://dblp.org/{toc.removesuffix('.bht')}.xml"
-    data = request_bytes(url, timeout=60, retries=3, context=DBLP_SSL_CONTEXT)
+    data = request_bytes(url, timeout=20, retries=1, context=DBLP_SSL_CONTEXT)
     root = ET.fromstring(data)
     rows: list[dict[str, str]] = []
     for pub in root.iter():
@@ -382,7 +382,7 @@ def query_dblp_toc(venue: Venue, year: int, limit: int) -> list[dict[str, str]]:
         }
         url = "https://dblp.org/search/publ/api?" + urllib.parse.urlencode(params)
         try:
-            data = request_json(url, timeout=25, retries=3, context=DBLP_SSL_CONTEXT)
+            data = request_json(url, timeout=15, retries=1, context=DBLP_SSL_CONTEXT)
         except Exception as exc:
             log(f"[warn] DBLP fallback failed for {venue.venue} {year} via {toc}: {exc}")
             continue
