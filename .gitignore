@@ -1,4 +1,8 @@
-downloads/
+downloads/**
+!downloads/**/
+!downloads/**/paper.pdf
+downloads/**/repo/
+downloads/**/.git/
 .venv/
 env/
 __pycache__/

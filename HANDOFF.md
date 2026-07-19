@@ -35,7 +35,7 @@
   - 由 `scripts/report_coverage.py` 生成
   - 统计每个单元的带代码论文数、本地 PDF 数、本地 repo 数
 
-注意：`data/code_backed_coverage.csv` 中的“本地PDF数”和“本地仓库数”只是当前工作站本地下载状态；迁移到服务器后，`downloads/` 不会随 Git 上传，需要按表中链接重新下载或 clone。
+注意：当前已将 `downloads/**/paper.pdf` 中现有的论文 PDF 纳入 Git 迁移范围。`data/code_backed_coverage.csv` 中的“本地仓库数”只是当前工作站本地 clone 状态；迁移到服务器后，代码仓库目录不会随 Git 上传，需要按 `代码仓库` 链接重新 clone。
 
 ## 目录与文件说明
 
@@ -160,7 +160,7 @@ python scripts/clone_repos.py --csv data/papers_with_code.csv --timeout 120 --ma
 ## 重要注意事项
 
 - 不要提交 GitHub token、代理配置或 `.cache/`。
-- `downloads/` 很大，包含 PDF、arXiv source 和 cloned repos，已在 `.gitignore` 中，不应上传 GitHub。
+- `downloads/` 很大，包含 PDF、arXiv source 和 cloned repos。当前 `.gitignore` 只允许 `downloads/**/paper.pdf` 入库，其他下载内容继续忽略。
 - `.cache/` 包含 GitHub/arXiv/HF 查询缓存，也已忽略；迁移服务器后可重新生成。
 - 当前 GitHub Search 的保守匹配过滤了 `awesome`、`survey`、`papers`、`tutorial` 等泛化仓库，但仍需要人工抽查一部分结果。
 - 有些 `代码仓库` 实际是项目页、Hugging Face 页面、Colab、论文主页等，并不一定能直接 `git clone`。这类仍可作为复现资源链接保留。
@@ -177,11 +177,23 @@ python scripts/clone_repos.py --csv data/papers_with_code.csv --timeout 120 --ma
 - 系统/网络/安全/数据库：EuroSys/ASPLOS/NSDI/SIGCOMM/CCS/ICDE/SIGMOD/VLDB 等目前候选池或代码链接命中不足，建议先修 DBLP 扩展，再跑 GitHub Search。
 - IJCAI/NeurIPS：候选池已扩得较大，但显式摘要链接命中较少，需要 GitHub Search 或 OpenReview/Papers 页面增强。
 
+## 服务器迁移建议
+
+- 论文 PDF：已上传现有 `downloads/**/paper.pdf`，服务器 `git pull` 后即可得到这些 PDF。
+- 代码仓库：不要从 GitHub 仓库迁移本地 clone 目录。服务器上应根据 `data/papers_with_code.csv` 的 `代码仓库` 字段重新运行 `scripts/clone_repos.py`。
+- arXiv source、外部数据集、模型权重：当前不上传，后续按需下载或另走对象存储。
+
+推荐服务器重新 clone 仓库：
+
+```bash
+python scripts/clone_repos.py --csv data/papers_with_code.csv --timeout 120 --max-items 0
+```
+
 ## Git 与大文件情况
 
 - 远程仓库：`origin git@github.com:ignorancex/cspaper-dataset.git`
-- 当前被 Git 跟踪的最大文件约 1 MB，是 `data/papers_candidates.csv`。
-- 超过 100 MB 的文件存在于 `downloads/` 下，但该目录已忽略，不会被正常 `git add` 上传。
+- 当前会上传现有 `paper.pdf` 文件；截至本次迁移约 101 个，约 230 MB，单个最大约 15 MB。
+- 超过 100 MB 的文件存在于 `downloads/` 下的 repo/data 子目录，但这些路径仍被 `.gitignore` 忽略，不会被正常 `git add` 上传。
 - push 前建议检查：
 
 ```bash
