@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from collect_papers import COLUMNS
+from collect_papers import COLUMNS, row_key
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +29,7 @@ DEFAULT_INPUT = ROOT / "data" / "papers.csv"
 DEFAULT_OUTPUT = ROOT / "data" / "papers_with_code.csv"
 CACHE_PATH = ROOT / ".cache" / "github_repo_search.json"
 ARXIV_CACHE_PATH = ROOT / ".cache" / "arxiv_title_search.json"
+HF_CACHE_PATH = ROOT / ".cache" / "hf_paper_search.json"
 USER_AGENT = "cspaper-dataset/0.1"
 ARXIV_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
@@ -148,21 +149,56 @@ def arxiv_repo_for_title(title: str, cache: dict[str, Any]) -> tuple[str, str]:
     return repo, note
 
 
+def hf_repo_for_title(title: str, cache: dict[str, Any]) -> tuple[str, str]:
+    cache_key = title.lower()
+    if cache_key in cache:
+        item = cache[cache_key]
+        return item.get("repo", ""), item.get("note", "")
+    url = "https://huggingface.co/api/papers?query=" + urllib.parse.quote(title)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    repo = ""
+    note = ""
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            papers = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        cache[cache_key] = {"repo": "", "note": ""}
+        save_json(HF_CACHE_PATH, cache)
+        return "", ""
+    for paper in papers if isinstance(papers, list) else []:
+        paper_title = paper.get("title", "")
+        if normalize_title(paper_title) != normalize_title(title):
+            continue
+        repo = extract_code_url(paper.get("summary", ""))
+        if repo:
+            paper_id = paper.get("id", "")
+            note = f"Hugging Face Papers summary code URL match; paper:{paper_id}"
+            break
+    cache[cache_key] = {"repo": repo, "note": note}
+    save_json(HF_CACHE_PATH, cache)
+    return repo, note
+
+
 def extract_code_url(text: str) -> str:
     urls = re.findall(r"https?://[^\s)>\\\]]+", text)
     for raw_url in urls:
-        url = raw_url.rstrip(".,;)}]")
+        url = clean_code_url(raw_url)
         lowered = url.lower()
         if any(host in lowered for host in CODE_HOSTS):
             return url
     for raw_url in urls:
-        url = raw_url.rstrip(".,;)}]")
+        url = clean_code_url(raw_url)
         lowered_text = text.lower()
         idx = lowered_text.find(url.lower())
         window = lowered_text[max(0, idx - 80) : idx + len(url) + 80] if idx >= 0 else lowered_text
         if any(token in window for token in ("code", "repository", "repo", "implementation", "project page", "available at")):
             return url
     return ""
+
+
+def clean_code_url(url: str) -> str:
+    url = re.split(r"[{}$]", url.strip(), maxsplit=1)[0]
+    return url.rstrip(".,;:)}]")
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -172,10 +208,18 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 def write_rows(path: Path, rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
+    for attempt in range(5):
+        try:
+            tmp_path.replace(path)
+            return
+        except OSError:
+            time.sleep(0.5 * (attempt + 1))
+    tmp_path.replace(path)
 
 
 def title_tokens(title: str) -> set[str]:
@@ -272,66 +316,114 @@ def append_note(row: dict[str, str], note: str) -> None:
 
 def build(args: argparse.Namespace) -> list[dict[str, str]]:
     rows = read_rows(Path(args.input))
+    existing_rows = read_rows(Path(args.output)) if Path(args.output).exists() else []
+    existing_by_key = {row_key(row): row for row in existing_rows}
     cache = load_cache()
     arxiv_cache = load_json(ARXIV_CACHE_PATH)
+    hf_cache = load_json(HF_CACHE_PATH)
     token = os.environ.get("GITHUB_TOKEN", "")
     grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
     for row in rows:
         grouped.setdefault((row["会议或期刊名"], row["年份"]), []).append(row)
+    existing_by_cell: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in existing_rows:
+        existing_by_cell.setdefault((row["会议或期刊名"], row["年份"]), []).append(row)
 
     output: list[dict[str, str]] = []
+    processed_keys: set[tuple[str, str]] = set()
     queries = 0
+
+    def merged_output() -> list[dict[str, str]]:
+        merged = list(output)
+        for key in sorted(existing_by_cell):
+            if key not in processed_keys:
+                merged.extend(existing_by_cell[key])
+        return merged
+
+    def preserve_local_path(row: dict[str, str]) -> dict[str, str]:
+        existing = existing_by_key.get(row_key(row))
+        if existing and existing.get("本地的下载路径") and not row.get("本地的下载路径"):
+            row["本地的下载路径"] = existing["本地的下载路径"]
+        return row
+
     for key in sorted(grouped):
         selected: list[dict[str, str]] = []
-        candidates = grouped[key]
-        for row in candidates:
+        selected_keys: set[tuple[str, str, str]] = set()
+        for row in existing_by_cell.get(key, []):
             if row.get("代码仓库"):
-                selected.append(dict(row))
+                selected.append(preserve_local_path(dict(row)))
+                selected_keys.add(row_key(row))
                 if len(selected) >= args.per_cell:
                     break
-        for row in candidates:
-            if len(selected) >= args.per_cell:
-                break
-            if row.get("代码仓库"):
-                continue
-            repo_url, note = arxiv_repo_for_title(row["文章名"], arxiv_cache)
-            if repo_url:
+        candidates = grouped[key]
+        if len(selected) < args.per_cell:
+            for row in candidates:
+                if row_key(row) in selected_keys:
+                    continue
+                if row.get("代码仓库"):
+                    selected.append(preserve_local_path(dict(row)))
+                    selected_keys.add(row_key(row))
+                    if len(selected) >= args.per_cell:
+                        break
+        if len(selected) < args.per_cell:
+            for row in candidates:
+                if len(selected) >= args.per_cell:
+                    break
+                if row.get("代码仓库") or row_key(row) in selected_keys:
+                    continue
+                repo_url, note = arxiv_repo_for_title(row["文章名"], arxiv_cache)
+                if repo_url:
+                    new_row = dict(row)
+                    new_row["代码仓库"] = repo_url
+                    append_note(new_row, note)
+                    selected.append(preserve_local_path(new_row))
+                    selected_keys.add(row_key(new_row))
+                    log(f"[arxiv-repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
+                    time.sleep(args.arxiv_sleep)
+                    continue
+                time.sleep(args.arxiv_sleep)
+                repo_url, note = hf_repo_for_title(row["文章名"], hf_cache)
+                if repo_url:
+                    new_row = dict(row)
+                    new_row["代码仓库"] = repo_url
+                    append_note(new_row, note)
+                    selected.append(preserve_local_path(new_row))
+                    selected_keys.add(row_key(new_row))
+                    log(f"[hf-repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
+                    time.sleep(args.hf_sleep)
+                    continue
+                time.sleep(args.hf_sleep)
+                if args.max_queries and queries >= args.max_queries:
+                    continue
+                try:
+                    repo_url, note, cached = best_repo_for_title(row["文章名"], token, cache, args.min_score)
+                    if not cached:
+                        queries += 1
+                except RuntimeError as exc:
+                    log(f"[stop] {exc}")
+                    write_rows(Path(args.output), merged_output())
+                    return merged_output()
+                except Exception as exc:
+                    log(f"[warn] search failed: {row['文章名']} ({exc})")
+                    queries += 1
+                    continue
+                if not cached:
+                    time.sleep(args.sleep)
+                if not repo_url:
+                    continue
                 new_row = dict(row)
                 new_row["代码仓库"] = repo_url
                 append_note(new_row, note)
-                selected.append(new_row)
-                log(f"[arxiv-repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
-                time.sleep(args.arxiv_sleep)
-                continue
-            time.sleep(args.arxiv_sleep)
-            if args.max_queries and queries >= args.max_queries:
-                continue
-            try:
-                repo_url, note, cached = best_repo_for_title(row["文章名"], token, cache, args.min_score)
-                if not cached:
-                    queries += 1
-            except RuntimeError as exc:
-                log(f"[stop] {exc}")
-                return output
-            except Exception as exc:
-                log(f"[warn] search failed: {row['文章名']} ({exc})")
-                queries += 1
-                continue
-            if not cached:
-                time.sleep(args.sleep)
-            if not repo_url:
-                continue
-            new_row = dict(row)
-            new_row["代码仓库"] = repo_url
-            append_note(new_row, note)
-            selected.append(new_row)
-            log(f"[repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
+                selected.append(preserve_local_path(new_row))
+                log(f"[repo] {key[0]} {key[1]}: {new_row['文章名']} -> {repo_url}")
         output.extend(selected[: args.per_cell])
+        processed_keys.add(key)
         if selected:
             log(f"[cell] {key[0]} {key[1]}: {len(selected[:args.per_cell])}")
-        write_rows(Path(args.output), output)
-    log(f"[done] wrote {len(output)} rows to {args.output}; queries={queries}")
-    return output
+        write_rows(Path(args.output), merged_output())
+    final_rows = merged_output()
+    log(f"[done] wrote {len(final_rows)} rows to {args.output}; queries={queries}")
+    return final_rows
 
 
 def main() -> int:
@@ -343,6 +435,7 @@ def main() -> int:
     parser.add_argument("--min-score", type=float, default=0.45)
     parser.add_argument("--sleep", type=float, default=6.5)
     parser.add_argument("--arxiv-sleep", type=float, default=3.0)
+    parser.add_argument("--hf-sleep", type=float, default=0.05)
     args = parser.parse_args()
     build(args)
     return 0

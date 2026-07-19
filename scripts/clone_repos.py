@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 import shutil
 import time
 from pathlib import Path
@@ -61,6 +62,20 @@ def rewrite_clone_url(repo_url: str) -> str:
     return prefix.rstrip("/") + "/" + repo_url
 
 
+def cloneable_repo_url(repo_url: str) -> str:
+    github_match = re.match(r"https?://github\.com/([^/\s]+)/([^/\s#?]+)", repo_url)
+    if github_match:
+        owner, repo = github_match.groups()
+        repo = repo.removesuffix(".git")
+        return f"https://github.com/{owner}/{repo}"
+    gitlab_match = re.match(r"https?://gitlab\.com/([^/\s]+/[^/\s#?]+)", repo_url)
+    if gitlab_match:
+        return f"https://gitlab.com/{gitlab_match.group(1).removesuffix('.git')}"
+    if repo_url.endswith(".git"):
+        return repo_url
+    return ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", default=str(ROOT / "data" / "papers_with_code.csv"))
@@ -88,6 +103,10 @@ def main() -> int:
             continue
         if args.max_items and attempted >= args.max_items:
             break
+        repo_url = cloneable_repo_url(repo_url)
+        if not repo_url:
+            append_note(row, "code link is a project page; repo clone pending")
+            continue
         attempted += 1
         clone_url = rewrite_clone_url(repo_url)
         ok = clone_repo(clone_url, repo_dir, timeout=args.timeout)

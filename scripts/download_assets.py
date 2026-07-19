@@ -7,6 +7,7 @@ import argparse
 import csv
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -31,7 +32,7 @@ COLUMNS = [
     "文章类别",
     "备注",
 ]
-USER_AGENT = "cspaper-dataset/0.1 (https://github.com/local/cspaper-dataset)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 
 
 def log(message: str) -> None:
@@ -46,6 +47,15 @@ def slugify(value: str, max_len: int = 80) -> str:
 def infer_pdf_url(link: str) -> str:
     if not link:
         return ""
+    if "doi.org/10.18653/v1/" in link:
+        acl_id = link.rstrip("/").rsplit("/", 1)[-1]
+        return f"https://aclanthology.org/{acl_id}.pdf"
+    if "aclanthology.org/" in link:
+        acl_id = urlparse(link).path.strip("/").removesuffix(".pdf")
+        if acl_id:
+            return f"https://aclanthology.org/{acl_id}.pdf"
+    if "openreview.net/forum" in link and "id=" in link:
+        return link.replace("/forum", "/pdf")
     if "arxiv.org/abs/" in link:
         arxiv_id = link.rstrip("/").rsplit("/", 1)[-1]
         return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
@@ -54,10 +64,13 @@ def infer_pdf_url(link: str) -> str:
     parsed = urlparse(link)
     if parsed.path.lower().endswith(".pdf"):
         return link
+    if parsed.netloc == "openaccess.thecvf.com" and parsed.path.lower().endswith(".html"):
+        return link.replace("/html/", "/papers/")[:-5] + ".pdf"
     if "/article/download/" in parsed.path.lower():
         return link
     if parsed.netloc == "proceedings.mlr.press" and parsed.path.lower().endswith(".html"):
-        return link[:-5] + ".pdf"
+        stem = parsed.path.rsplit("/", 1)[-1][:-5]
+        return link[:-5] + "/" + stem + ".pdf"
     return ""
 
 
@@ -75,13 +88,32 @@ def download_file(url: str, output: Path, timeout: int = 60) -> bool:
         return True
     output.parent.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            data = response.read()
-    except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError) as exc:
-        log(f"[warn] download failed: {url} ({exc})")
+    last_error: Exception | None = None
+    for _ in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                data = response.read()
+            output.write_bytes(data)
+            return output.exists() and output.stat().st_size > 0
+        except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError) as exc:
+            last_error = exc
+            time.sleep(0.5)
+    curl = shutil.which("curl.exe") or shutil.which("curl")
+    if curl:
+        result = subprocess.run(
+            [curl, "-L", "--fail", "--retry", "2", "--max-time", str(timeout), "-A", USER_AGENT, "-o", str(output), url],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if result.returncode == 0 and output.exists() and output.stat().st_size > 0:
+            return True
+        if output.exists() and output.stat().st_size == 0:
+            output.unlink()
+        log(f"[warn] curl download failed: {url} ({result.stdout.strip()})")
         return False
-    output.write_bytes(data)
+    log(f"[warn] download failed: {url} ({last_error})")
     return output.exists() and output.stat().st_size > 0
 
 
